@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Word Doc Synth</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="title">Word Doc Synth</div>
+
+      <div class="controls">
+        <!-- Font size -->
+        <div class="control-group">
+          <button class="tool-btn">-</button>
+          <span class="font-size-display">12</span>
+          <button class="tool-btn">+</button>
+        </div>
+
+        <!-- Bold / Italic / Underline -->
+        <div class="control-group">
+          <button class="tool-btn toggle"><b>B</b></button>
+          <button class="tool-btn toggle"><i>I</i></button>
+          <button class="tool-btn toggle"><u>U</u></button>
+        </div>
+
+        <!-- Colors -->
+        <div class="control-group">
+          <button class="color-btn black"></button>
+          <button class="color-btn blue"></button>
+          <button class="color-btn green"></button>
+          <button class="color-btn red"></button>
+        </div>
+
+        <!-- Kerning -->
+        <div class="control-group">
+          <button class="tool-btn kerning-tight">A A</button>
+          <button class="tool-btn kerning-loose">A A</button>
+        </div>
+
+        <!-- Reset -->
+        <div class="control-group">
+          <button class="tool-btn reset">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Area -->
+    <div class="doc-container">
+      <div class="page" contenteditable="true">
+        <!-- User types here -->
+      </div>
+    </div>
+  </body>
+</html>
