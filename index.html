@@ -10,12 +10,16 @@
 
     <!-- links css and javascript -->
     <link rel="stylesheet" href="style.css" />
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
   </head>
   <body>
     <!-- toolbar -->
     <div class="toolbar">
-      <div class="title">Word Doc Synth</div>
+      <div class="title-group">
+        <div class="title">Word Doc Synth</div>
+        <button class="tool-btn help-btn">Help</button>
+        <p>Hint: Add ; at the end of a sentence.</p>
+      </div>
 
       <div class="controls">
         <!-- font size -->
@@ -40,12 +44,6 @@
           <button class="color-btn red"></button>
         </div>
 
-        <!-- kerning -->
-        <div class="control-group">
-          <button class="tool-btn kerning-tight">A A</button>
-          <button class="tool-btn kerning-loose">A A</button>
-        </div>
-
         <!-- reset -->
         <div class="control-group">
           <button class="tool-btn reset">Reset</button>
@@ -56,6 +54,41 @@
     <!-- document area -->
     <div class="doc-container">
       <div class="page" contenteditable="true"></div>
+    </div>
+
+    <!-- help panel -->
+    <div class="help-panel">
+      <h3>How to Use Word Doc Synth</h3>
+      Letter → single sustained frequency (default 1 second).
+      <br /><br />
+      Word → chord (all letters played together once).
+      <br /><br />
+      [ ... ]; → loop everything inside (updates live, stops when deleted).
+      <br />
+      <br />
+      ! → louder for that note/chord only
+      <br />
+      <br />
+      ? → random pitch
+      <br />
+      <br />
+      ( ... ) → live mode: plays notes as soon as you type it (no chords)
+      <br />
+      <br />
+      → extend sustain by +1 second.
+      <br />
+      <br />
+      . → shorten sustain by -0.5 seconds.
+      <br />
+      <br />
+      / → silence (rest).
+      <br />
+      <br />
+      " ... " → muted (text exists but makes no sound).
+      <br />
+      <br />
+      ; → plays everything in that paragraph (nothing will sound if this isn't
+      typed)
     </div>
   </body>
 </html>
