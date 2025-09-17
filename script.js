@@ -1,16 +1,16 @@
 // rules:
-// ; = activates a paragraph (plays once + starts loops inside [ ])
+// . = activates a paragraph (plays once + starts loops inside [ ])
 // [ ... ] = keeps looping forever until deleted
 // ( ... ) = paragraph is live mode (plays letters as you type)
 // words with no spaces = chord
 // letters with spaces between = sequence
-// modifiers: ! louder, ? random note/chord, - extend sustain, . shorten sustain, / = 2 second rest, "..." muted
+// modifiers: ! louder, ? random note/chord, - extend sustain, ; shorten sustain, / = 2 second rest, "..." muted
 
 document.addEventListener("DOMContentLoaded", () => {
   const page = document.querySelector(".page");
   const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
-  // mapping letters to notes, do i want sharps or just keep everything within the C major scale...?
+  // mapping letters to notes
   const letterToNote = {
     a: "C4",
     b: "D4",
@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // keep track of loops for each paragraph
   let activeLoops = {};
 
-  // unlock tone.js once user interacts because sometimes auto loading messes up
+  // unlock tone.js once user interacts
   document.body.addEventListener(
     "click",
     async () => {
@@ -66,17 +66,20 @@ document.addEventListener("DOMContentLoaded", () => {
     { once: true }
   );
 
-  // figure out sustain time depending on "-" and "."
+  // figure out sustain time depending on "-" and ";"
   function getSustain(text) {
     let length = 1; // default 1 second
+
     if (text.includes("-")) {
       const count = (text.match(/-/g) || []).length;
       length += count;
     }
-    if (text.includes(".")) {
-      const count = (text.match(/\./g) || []).length;
+
+    if (text.includes(";")) {
+      const count = (text.match(/;/g) || []).length;
       length -= count * 0.5;
     }
+
     if (length < 0.1) length = 0.1;
     return length;
   }
@@ -102,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function playWord(word, currentTime) {
     if (/^".*"$/.test(word)) return currentTime; // muted
 
-    // if its literally a "/", make it a 2 second rest
+    // "/" = 2 second rest
     if (word === "/") {
       return currentTime + 2.0;
     }
@@ -119,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chord.push(pool[Math.floor(Math.random() * pool.length)]);
       }
       synth.triggerAttackRelease(chord, dur, currentTime, velocity);
-      return currentTime + dur; // advance by sustain
+      return currentTime + dur;
     }
 
     // single letter = sequence element
@@ -143,9 +146,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return currentTime;
   }
 
-  // play a paragraph once (when ended with ;)
+  // play a paragraph once (when ended with .)
   function playParagraph(text) {
-    // split into parts: words, spaces, and also keep "/" as its own
     const parts = text
       .trim()
       .split(/(\s+|\/)/)
@@ -168,8 +170,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // only paragraphs that end with ";" are active
-      if (!trimmed.endsWith(";")) {
+      // only paragraphs that end with "." are active
+      if (!trimmed.endsWith(".")) {
         if (activeLoops[idx]) {
           activeLoops[idx].forEach((loopObj) =>
             clearInterval(loopObj.interval)
@@ -214,7 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
           parts.forEach((p) => {
             t = playWord(p, t);
           });
-        }, 2000); // every 2 seconds
+        }, 2000);
 
         activeLoops[idx].push({ text: full, interval });
       });
@@ -228,7 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // live typing mode for () paragraphs
   page.addEventListener("keydown", (e) => {
-    const paragraphs = page.innerText.split("\n");
     const sel = window.getSelection();
     const node = sel.anchorNode;
     if (!node) return;
@@ -239,12 +240,12 @@ document.addEventListener("DOMContentLoaded", () => {
         playLetter(e.key, e.key);
       }
       if (e.key === "/") {
-        // in live mode, / should cut off all sounds instantly
         synth.releaseAll();
       }
     }
   });
 
+  // help panel toggle
   const helpBtn = document.querySelector(".help-btn");
   const helpPanel = document.querySelector(".help-panel");
 
