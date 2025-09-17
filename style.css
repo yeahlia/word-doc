@@ -154,3 +154,13 @@ body {
   border-bottom: 1px solid #ccc;
   padding-bottom: 0.3rem;
 }
+
+/* default: hidden */
+.help-panel {
+  display: none;
+}
+
+/* when checkbox is checked, show panel */
+#help-toggle:checked ~ .help-panel {
+  display: block;
+}
