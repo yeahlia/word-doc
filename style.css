@@ -1,27 +1,27 @@
-/* Base styling */
+/* base styling */
 body {
   font-family: "Times New Roman", serif;
-  background-color: #e0e0e0;
+  background-color: #e0e0e0; /* chose a color like microsoft word */
   margin: 0;
   padding: 0;
 }
 
-/* Toolbar */
+/* toolbar */
 .toolbar {
-  display: flex;
+  display: flex; /* displays everything side by side */
   align-items: center;
   justify-content: space-between;
   background: #d6d6d6;
-  border-bottom: 2px solid #aaa;
+  border-bottom: 2px solid #aaa; /* line divider below */
   padding: 0.5rem 1rem;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* Title + Help button group */
+/* title + help button */
 .title-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.75rem; /* space between title text and other elements */
 }
 
 .title {
@@ -35,15 +35,15 @@ body {
   gap: 0.5rem;
 }
 
-/* Buttons */
+/* buttons */
 .tool-btn,
 .color-btn {
   border: 2px solid #999;
   background: #f0f0f0;
-  padding: 0.3rem 0.6rem;
+  padding: 0.3rem 0.6rem; /* spacing inside */
   font-size: 0.9rem;
-  cursor: pointer;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #aaa;
+  cursor: pointer; /* show pointer when hovering */
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #aaa; /* makes a raised 3d effect! */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,17 +57,17 @@ body {
 
 .tool-btn:active,
 .color-btn:active {
-  box-shadow: inset -1px -1px 0 #fff, inset 1px 1px 0 #aaa;
+  box-shadow: inset -1px -1px 0 #fff, inset 1px 1px 0 #aaa; /* makes the 3d button look pressed */
   background: #ddd;
 }
 
-/* Toggle buttons (Bold, Italic, Underline) */
+/* toggle buttons (bold, italic, underline) */
 .toggle.active {
   background: #ccc;
   box-shadow: inset -2px -2px 3px #999, inset 2px 2px 3px #fff;
 }
 
-/* Reset button */
+/* reset button */
 .reset {
   background: #fdd;
   border: 2px solid #c33;
@@ -81,7 +81,7 @@ body {
   background: #f99;
 }
 
-/* Color buttons */
+/* color buttons */
 .color-btn {
   width: 20px;
   height: 20px;
@@ -101,7 +101,7 @@ body {
   background: red;
 }
 
-/* Document container */
+/* document container */
 .doc-container {
   display: flex;
   justify-content: center;
@@ -109,15 +109,16 @@ body {
 }
 
 .page {
+  /* makes everything look like an a4 piece of paper */
   width: 21cm;
-  min-height: 29.7cm; /* A4 ratio */
+  min-height: 29.7cm; /* a4 ratio */
   background: white;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   padding: 2cm;
   font-size: 12pt;
   color: black;
   line-height: 1.5;
-  overflow-y: auto;
+  overflow-y: auto; /* if content overflows then it scrolls */
 }
 
 .control-group {
@@ -127,7 +128,7 @@ body {
   margin-right: 1rem;
 }
 
-/* Help panel (floating bottom-left box) */
+/* help panel */
 .help-panel {
   position: fixed;
   bottom: 10px;
