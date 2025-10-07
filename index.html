@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Word Doc Synth</title>
 
-    <!-- tone js library -->
+    <!-- tone.js -->
     <script src="https://unpkg.com/tone"></script>
 
-    <!-- links css and javascript -->
+    <!-- css + js -->
     <link rel="stylesheet" href="style.css" />
     <script src="script.js" defer></script>
   </head>
@@ -17,41 +17,92 @@
     <div class="toolbar">
       <div class="title-group">
         <div class="title">Word Doc Synth</div>
-        <button class="tool-btn help-btn">Help</button>
-        <p>Hint: Add . at the end of a sentence.</p>
+
+        <!-- help (pure css toggle) -->
+        <input type="checkbox" id="help-toggle" hidden />
+        <label for="help-toggle" class="tool-btn help-btn">Help</label>
+
+        <p class="hint">Hint: end a paragraph with <b>.</b></p>
       </div>
 
       <div class="controls">
         <!-- font size -->
-        <div class="control-group">
-          <button class="tool-btn">-</button>
+        <div class="control-group" title="Font size → loudness">
+          <button class="tool-btn" id="font-smaller">-</button>
           <span class="font-size-display">12</span>
-          <button class="tool-btn">+</button>
+          <button class="tool-btn" id="font-larger">+</button>
         </div>
 
         <!-- bold / italic / underline -->
         <div class="control-group">
-          <button class="tool-btn toggle"><b>B</b></button>
-          <button class="tool-btn toggle"><i>I</i></button>
-          <button class="tool-btn toggle"><u>U</u></button>
+          <button
+            class="tool-btn toggle"
+            data-cmd="bold"
+            title="Bold → Overdrive"
+          >
+            <b>B</b>
+          </button>
+          <button
+            class="tool-btn toggle"
+            data-cmd="italic"
+            title="Italic → Vibrato"
+          >
+            <i>I</i>
+          </button>
+          <button
+            class="tool-btn toggle"
+            data-cmd="underline"
+            title="Underline → Reverb"
+          >
+            <u>U</u>
+          </button>
         </div>
 
         <!-- colors -->
-        <div class="control-group">
-          <button class="color-btn black"></button>
-          <button class="color-btn blue"></button>
-          <button class="color-btn green"></button>
-          <button class="color-btn red"></button>
+        <div class="control-group" title="Colour → timbre">
+          <button
+            class="color-btn black"
+            data-color="black"
+            title="Triangle"
+          ></button>
+          <button
+            class="color-btn blue"
+            data-color="blue"
+            title="Sine"
+          ></button>
+          <button
+            class="color-btn green"
+            data-color="green"
+            title="Square"
+          ></button>
+          <button
+            class="color-btn red"
+            data-color="red"
+            title="Triangle + drive"
+          ></button>
         </div>
 
-        <!-- reset -->
+        <!-- reset + stop -->
         <div class="control-group">
-          <button class="tool-btn reset">Reset</button>
+          <button
+            class="tool-btn reset"
+            id="reset-format"
+            title="Clear formatting in selection"
+          >
+            Reset
+          </button>
+          <button
+            class="tool-btn"
+            id="stop-all"
+            title="Stop all loops & sounds"
+          >
+            Stop
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- document area -->
+    <!-- document -->
     <div class="doc-container">
       <div class="page" contenteditable="true"></div>
     </div>
@@ -59,38 +110,89 @@
     <!-- help panel -->
     <div class="help-panel">
       <h3>How to Use Word Doc Synth</h3>
-      <strong>REMINDER: NOTHING WILL PLAY IF . ISN'T USED!</strong>
-      <br /><br />
-      Letter → single sustained frequency (default 1 second).
-      <br /><br />
-      Word → chord (all letters played together once).
-      <br /><br />
-      [ ... ]. → loop everything inside (updates live, stops when deleted).
-      <br />
-      <br />
-      ! → louder for that note/chord only
-      <br />
-      <br />
-      ? → random pitch
-      <br />
-      <br />
-      ( ... ) → live mode: plays notes as soon as you type it (no chords)
-      <br />
-      <br />
-      → extend sustain by +1 second.
-      <br />
-      <br />
-      ; → shorten sustain by -0.5 seconds.
-      <br />
-      <br />
-      / → silence (rest).
-      <br />
-      <br />
-      " ... " → muted (text exists but makes no sound).
-      <br />
-      <br />
-      . → plays everything in that paragraph (nothing will sound if this isn't
-      typed)
+      <strong>Nothing plays unless a paragraph ends with <code>.</code></strong>
+      <ul>
+        <li><b>Letter</b> → single note (space = sequence)</li>
+        <li><b>Word (no spaces)</b> → chord</li>
+        <li><b>[ ... ]</b> → loop contents (keeps repeating)</li>
+        <li><b>( ... )</b> → live typing (plays as you type)</li>
+        <li><b>!</b> → accent (louder)</li>
+        <li><b>?</b> → random pitch</li>
+        <li><b>/</b> → rest (~2s silence)</li>
+        <li><b>" ... "</b> → muted (no sound)</li>
+      </ul>
+      <p><b>Formatting only affects the formatted part:</b></p>
+      <ul>
+        <li><b>Bold</b> → Overdrive</li>
+        <li><i>Italic</i> → Vibrato</li>
+        <li><u>Underline</u> → More Reverb</li>
+        <li>
+          Colour → Timbre (Black=Triangle, Blue=Sine, Green=Square,
+          Red=Triangle+Drive)
+        </li>
+        <li>Font Size → Loudness (bigger = louder)</li>
+      </ul>
+      <label for="help-toggle" class="tool-btn" style="margin-top: 0.5rem"
+        >Close</label
+      >
+      <button id="replay-tutorial" class="tool-btn" style="margin-left: 0.5rem">
+        Replay tutorial
+      </button>
     </div>
+
+    <!-- interactive onboarding (gated) -->
+    <div id="coach" class="coach hidden" aria-hidden="true">
+      <div class="coach-dim"></div>
+      <div class="coach-bubble" id="coach-bubble">
+        <div class="coach-step" data-step="1">
+          <h4>Type something</h4>
+          <p>Start by typing letters in the page.</p>
+          <div class="coach-meta">This advances when you type a letter.</div>
+          <button class="tool-btn ghost" data-skip>Skip</button>
+        </div>
+        <div class="coach-step hidden" data-step="2">
+          <h4>Play a paragraph</h4>
+          <p>End a line with a <b>.</b> to play it once.</p>
+          <div class="coach-meta">
+            We continue when a paragraph ends with “.”
+          </div>
+          <button class="tool-btn ghost" data-skip>Skip</button>
+        </div>
+        <div class="coach-step hidden" data-step="3">
+          <h4>Make a loop</h4>
+          <p>Wrap notes with <b>[ ... ]</b> and end the line with <b>.</b></p>
+          <div class="coach-meta">When a loop starts, this step completes.</div>
+          <button class="tool-btn ghost" data-skip>Skip</button>
+        </div>
+        <div class="coach-step hidden" data-step="4">
+          <h4>Jam live</h4>
+          <p>Type inside <b>( ... )</b> — notes play instantly.</p>
+          <div class="coach-meta">
+            This step completes when you trigger a live note.
+          </div>
+          <button class="tool-btn ghost" data-skip>Skip</button>
+        </div>
+        <div class="coach-step hidden" data-step="5">
+          <h4>Style changes sound</h4>
+          <p>
+            Select text and press <b>B</b>, <i>I</i>, <u>U</u> or pick a
+            colour/size.
+          </p>
+          <div class="coach-meta">We continue once formatting is applied.</div>
+          <button class="tool-btn ghost" data-skip>Skip</button>
+        </div>
+        <div class="coach-step hidden" data-step="6">
+          <h4>All set!</h4>
+          <p>
+            Type, format, add <b>.</b>, loop with <b>[ ... ]</b>, or jam with
+            <b>( ... )</b>.
+          </p>
+          <button class="tool-btn primary" data-finish>Start</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- toasts -->
+    <div id="toasts" class="toasts"></div>
   </body>
 </html>
