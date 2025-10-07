@@ -4,7 +4,7 @@
 // / (at the START of a paragraph) = live mode (plays letters as you type)
 // words with no spaces = chord
 // letters with spaces between = sequence
-// modifiers: ! louder, ? random note/chord, "..." muted
+// modifiers: ? random note/chord
 // Formatting maps to sound per formatted span (B/I/U, color, font-size)
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.execCommand("foreColor", false, color);
   }
 
-  function adjustFontSize(deltaPx) {
+  function adjustFontSize(deltaPt) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
@@ -87,8 +87,13 @@ document.addEventListener("DOMContentLoaded", () => {
     range.surroundContents(span);
 
     const basePx = parseFloat(getComputedStyle(page).fontSize) || 16;
-    const curPx = parseFloat(getComputedStyle(span).fontSize) || basePx;
-    const nextPx = Math.max(8, Math.min(64, curPx + deltaPx));
+    const currentPx = parseFloat(getComputedStyle(span).fontSize) || basePx;
+
+    // Convert px → pt, apply change, clamp to 6–18 pt, then back to px
+    const currentPt = currentPx * 0.75;
+    const nextPt = Math.max(6, Math.min(18, currentPt + deltaPt));
+    const nextPx = nextPt / 0.75;
+
     span.style.fontSize = `${nextPx}px`;
 
     const r = document.createRange();
@@ -97,21 +102,32 @@ document.addEventListener("DOMContentLoaded", () => {
     sel.addRange(r);
   }
 
-  function resetFormatting() {
-    page.focus();
-    document.execCommand("selectAll", false, null);
-    document.execCommand("removeFormat", false, null);
+  function fullReset() {
+    // stop all loops
+    for (const [node, loops] of activeLoops.entries()) {
+      loops.forEach((l) => clearInterval(l.interval));
+    }
+    activeLoops.clear();
 
-    // normalize color/size back to inherit
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const span = document.createElement("span");
-    span.style.color = "inherit";
-    span.style.fontSize = "inherit";
-    range.surroundContents(span);
-    sel.removeAllRanges();
+    // clear document content
+    page.innerHTML = "";
+
+    // reinsert an empty paragraph block
+    const empty = document.createElement("div");
+    empty.appendChild(document.createElement("br"));
+    page.appendChild(empty);
+
+    // reset font display and focus
+    updateFontDisplay();
+    page.focus();
+
+    console.log("Document reset.");
   }
+
+  // replace the existing reset event
+  document
+    .querySelector(".tool-btn.reset")
+    ?.addEventListener("click", fullReset);
 
   const fontDisplay = document.querySelector(".font-size-display");
   const allToolBtns = Array.from(document.querySelectorAll(".tool-btn"));
@@ -119,13 +135,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const plusBtn = allToolBtns.find((b) => b.textContent.trim() === "+");
 
   minusBtn?.addEventListener("click", () => {
-    adjustFontSize(-2);
+    adjustFontSize(-1);
     updateFontDisplay();
+    enforceFontSizeLimits();
   });
+
   plusBtn?.addEventListener("click", () => {
-    adjustFontSize(+2);
+    adjustFontSize(+1);
     updateFontDisplay();
+    enforceFontSizeLimits();
   });
+
+  function enforceFontSizeLimits() {
+    const currentPt = parseFloat(fontDisplay.textContent);
+
+    // Hide or show buttons based on limits
+    if (currentPt <= 6) {
+      minusBtn.style.visibility = "hidden";
+    } else {
+      minusBtn.style.visibility = "visible";
+    }
+
+    if (currentPt >= 18) {
+      plusBtn.style.visibility = "hidden";
+    } else {
+      plusBtn.style.visibility = "visible";
+    }
+  }
 
   function updateFontDisplay() {
     const sel = window.getSelection();
@@ -160,6 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
   italicBtn?.addEventListener("click", () => toggleCmd("italic"));
   underlineBtn?.addEventListener("click", () => toggleCmd("underline"));
 
+  // initialize display and button states after everything defined
+  updateFontDisplay();
+  enforceFontSizeLimits();
+
   document
     .querySelector(".color-btn.black")
     ?.addEventListener("click", () => setColor("black"));
@@ -167,22 +207,19 @@ document.addEventListener("DOMContentLoaded", () => {
     .querySelector(".color-btn.blue")
     ?.addEventListener("click", () => setColor("blue"));
   document
-    .querySelector(".color-btn.green")
-    ?.addEventListener("click", () => setColor("green"));
-  document
     .querySelector(".color-btn.red")
     ?.addEventListener("click", () => setColor("red"));
 
   document
     .querySelector(".tool-btn.reset")
-    ?.addEventListener("click", resetFormatting);
+    ?.addEventListener("click", fullReset);
 
   // --------------------------------
   // Attr helpers (colors, grouping)
   // --------------------------------
 
   function cssColorToBucket(cssColor) {
-    // Normalize rgb/rgba/hex/named to buckets: black, blue, green, red
+    // Normalize rgb/rgba/hex/named to buckets we support: black, blue, red
     const ctx = document.createElement("canvas").getContext("2d");
     ctx.fillStyle = cssColor;
     const normalized = ctx.fillStyle; // browser-normalized color
@@ -210,13 +247,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const max = Math.max(r, g, b);
     if (max < 30) return "black";
     if (b >= r && b >= g) return "blue";
-    if (g >= r && g >= b) return "green";
     if (r >= g && r >= b) return "red";
     return "black";
   }
 
   function attrsKey(a) {
-    // stable key for grouping runs
     return [
       a.bold ? 1 : 0,
       a.italic ? 1 : 0,
@@ -233,73 +268,80 @@ document.addEventListener("DOMContentLoaded", () => {
   function triggerChordWithAttrs(notes, dur, time, baseVelocity, attrs) {
     if (!notes || notes.length === 0) return;
 
-    // Font size → loudness
-    const basePx = parseFloat(getComputedStyle(page).fontSize) || 16;
-    const rel = Math.max(0.5, Math.min(2.0, (attrs.fontPx || basePx) / basePx));
-    let velocity = Math.max(
-      0.2,
-      Math.min(1.0, baseVelocity * (0.5 + 0.5 * rel))
-    );
+    // === Loudness per font size (explicit lookup, no scaling, no limiter) ===
+    const currentPx =
+      attrs.fontPx || parseFloat(getComputedStyle(page).fontSize) || 16;
+    const currentPt = Math.round(currentPx * 0.75);
+    const clampedPt = Math.max(6, Math.min(18, currentPt));
 
-    // Color → oscillator / aggression
-    let oscType = "triangle";
-    let extraDist = 0;
+    // Manual loudness table (edit these freely)
+    const loudnessMap = {
+      6: 0.03, // barely audible
+      7: 0.06,
+      8: 0.1,
+      9: 0.18,
+      10: 0.3,
+      11: 0.5,
+      12: 0.8, // "normal"
+      13: 1.2,
+      14: 2.0,
+      15: 3.3,
+      16: 5.0,
+      17: 7.0,
+      18: 10.0, // maximum loudness
+    };
+
+    // use exact loudness value directly as velocity
+    const velocity = loudnessMap[clampedPt] ?? 0.7;
+
+    // Color → oscillator
     const bucket = attrs.colorBucket || "black";
-    if (bucket === "blue") oscType = "sine";
-    else if (bucket === "green") oscType = "square";
-    else if (bucket === "red") {
-      oscType = "sawtooth";
-      extraDist = 0.4;
-    }
+    let oscOpts = { type: "sine", partialCount: 1 };
+    if (bucket === "blue") oscOpts = { type: "square", partialCount: 8 };
+    else if (bucket === "red") oscOpts = { type: "sawtooth", partialCount: 16 };
 
     const nodesToDispose = [];
-    // Bold → distortion (+ extra for red)
-    const distAmt = (attrs.bold ? 0.35 : 0) + extraDist;
-    const distortion =
-      distAmt > 0 ? new Tone.Distortion(distAmt).toDestination() : null;
-    if (distortion) nodesToDispose.push(distortion);
+    const chainNodes = [];
 
-    // Italic → vibrato
-    const vibrato = attrs.italic ? new Tone.Vibrato(6, 0.08).start() : null;
-    if (vibrato) nodesToDispose.push(vibrato);
-
-    // Underline → reverb (echo-y tail)
-    const reverb = attrs.underline
-      ? new Tone.Reverb({ decay: 2.2, wet: 0.35 })
-      : null;
-    if (reverb) nodesToDispose.push(reverb);
-
-    function connectChain(src) {
-      let head = src;
-      if (vibrato) {
-        head.connect(vibrato);
-        head = vibrato;
-      }
-      if (distortion) {
-        head.connect(distortion);
-        head = distortion;
-      }
-      if (reverb) {
-        head.connect(reverb);
-        head = reverb;
-      }
-      head.toDestination();
+    if (attrs.bold) {
+      const distortion = new Tone.Distortion(0.95);
+      chainNodes.push(distortion);
+      nodesToDispose.push(distortion);
     }
+
+    if (attrs.underline) {
+      const reverb = new Tone.Reverb({ decay: 5.0, wet: 0.75 });
+      chainNodes.push(reverb);
+      nodesToDispose.push(reverb);
+    }
+
+    const sink = new Tone.Gain().toDestination();
+    nodesToDispose.push(sink);
+    for (let i = 0; i < chainNodes.length; i++) {
+      const node = chainNodes[i];
+      if (i === chainNodes.length - 1) node.connect(sink);
+      else node.connect(chainNodes[i + 1]);
+    }
+    const inputNode = chainNodes.length ? chainNodes[0] : sink;
 
     const synths = notes.map(() => {
       const s = new Tone.Synth({
-        oscillator: { type: oscType },
-        envelope: { attack: 0.01, decay: 0.1, sustain: 0.6, release: 0.2 },
+        oscillator: oscOpts,
+        envelope: { attack: 0.01, decay: 0.12, sustain: 0.65, release: 0.25 },
       });
-      connectChain(s);
+      s.connect(inputNode);
+      if (attrs.italic) {
+        const lfo = new Tone.LFO({ frequency: 6, min: -75, max: 75 }).start();
+        lfo.connect(s.detune);
+        nodesToDispose.push(lfo);
+      }
       return s;
     });
 
     synths.forEach((s, i) =>
       s.triggerAttackRelease(notes[i], dur, time, velocity)
     );
-
-    const ms = Math.max(0, (time - Tone.now()) * 1000) + dur * 1000 + 300;
+    const ms = Math.max(0, (time - Tone.now()) * 1000) + dur * 1000 + 600;
     setTimeout(() => {
       synths.forEach((s) => s.dispose());
       nodesToDispose.forEach((n) => n.dispose?.());
@@ -317,40 +359,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (!note) return;
 
-    const dur = 1.0; // default sustain length 1 second
-    const baseVel = raw.includes("!") ? 1.0 : 0.7;
-
+    const dur = 1.0;
+    const baseVel = 0.7;
     triggerChordWithAttrs([note], dur, time, baseVel, attrs);
   }
 
   // play a word (handles chords, sequences, modifiers)
   function playWord(word, currentTime, attrs = {}) {
-    if (/^".*"$/.test(word)) return currentTime; // muted
+    const dur = 1.0;
+    const baseVel = 0.7;
 
-    const dur = 1.0; // fixed 1 second duration
-    const baseVel = word.includes("!") ? 1.0 : 0.7;
-
-    // random chord if "?" appears
     if (word.includes("?")) {
       let count = (word.match(/\?/g) || []).length;
       const pool = Object.values(letterToNote);
       let chord = [];
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count; i++)
         chord.push(pool[Math.floor(Math.random() * pool.length)]);
-      }
       triggerChordWithAttrs(chord, dur, currentTime, baseVel, attrs);
       return currentTime + dur;
     }
 
-    // single letter = sequence element
     if (word.length === 1) {
       playLetter(word, word, currentTime, attrs);
       return currentTime + dur;
     }
 
-    // chord from multiple letters (no spaces)
     const chord = word
-      .replace(/[^a-z? !]/gi, "")
+      .replace(/[^a-z? ]/gi, "")
       .split("")
       .map((l) => letterToNote[l.toLowerCase()])
       .filter(Boolean);
@@ -359,7 +394,6 @@ document.addEventListener("DOMContentLoaded", () => {
       triggerChordWithAttrs(chord, dur, currentTime, baseVel, attrs);
       return currentTime + dur;
     }
-
     return currentTime;
   }
 
@@ -424,78 +458,57 @@ document.addEventListener("DOMContentLoaded", () => {
     return segments;
   }
 
-  // normalize NBSP to normal spaces so sequences split correctly
   function charStreamFromSegments(segments) {
     const out = [];
     segments.forEach((seg) => {
-      const txt = seg.text.replace(/\u00A0/g, " "); // NBSP → space here too
-      for (let i = 0; i < txt.length; i++) {
+      const txt = seg.text.replace(/\u00A0/g, " ");
+      for (let i = 0; i < txt.length; i++)
         out.push({ ch: txt[i], attrs: seg.attrs });
-      }
     });
     return out;
   }
 
   function extractLoopRegions(charStream) {
     const regions = [];
-    let inQuotes = false;
     let stack = [];
     for (let i = 0; i < charStream.length; i++) {
       const { ch } = charStream[i];
-      if (ch === '"') inQuotes = !inQuotes;
-      if (inQuotes) continue;
       if (ch === "[") stack.push(i);
       else if (ch === "]" && stack.length) {
         const start = stack.pop();
         regions.push([start + 1, i]); // inside brackets
       }
     }
-    // Convert regions to arrays of {ch, attrs}
     return regions.map(([a, b]) => charStream.slice(a, b));
   }
 
   // -----------------------------
-  // NEW: robust region scheduler
+  // robust region scheduler
   // -----------------------------
   function isWhitespace(ch) {
     return ch === " " || ch === "\t" || ch === "\n" || ch === "\r";
   }
   function isWordChar(ch) {
-    return /[a-z?!]/i.test(ch); // letters, ?, !
-  }
+    return /[a-z?]/i.test(ch);
+  } // letters, ?
   function isBoundary(ch) {
-    // punctuation that ends a word but doesn't itself sound
-    return /[.,;:(){}\-\u2013\u2014]/.test(ch);
+    return /[.!?,;:(){}\-\u2013\u2014]/.test(ch);
   }
 
-  // Build words across formatting runs; letters in a word play together (chord).
-  // A space/boundary advances time (sequence).
   function playCharRegion(region, startTime) {
     let t = startTime ?? Tone.now();
-    let inQuotes = false;
-
-    let wordChars = []; // array of { ch, attrs }
-    let rawHasBang = false; // track '!' in word (loudness)
+    let wordChars = [];
 
     function flushWord() {
       if (wordChars.length === 0) return;
       const dur = 1.0;
-      const rawFlag = rawHasBang ? "!" : "";
-      wordChars.forEach(({ ch, attrs }) => playLetter(ch, rawFlag, t, attrs));
-      t += dur; // advance for sequence
+      wordChars.forEach(({ ch, attrs }) => playLetter(ch, "", t, attrs));
+      t += dur;
       wordChars = [];
-      rawHasBang = false;
     }
 
     for (let i = 0; i < region.length; i++) {
       const { ch, attrs } = region[i];
-
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-      if (inQuotes) continue;
-
       const c = ch === "\u00A0" ? " " : ch;
 
       if (isWhitespace(c)) {
@@ -508,14 +521,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (isWordChar(c)) {
-        if (c === "!") rawHasBang = true;
-        else wordChars.push({ ch: c, attrs });
+        wordChars.push({ ch: c, attrs });
         continue;
       }
 
       flushWord();
     }
-
     flushWord();
     return t;
   }
@@ -531,72 +542,96 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------
-  // Loops management
+  // Loops management (keyed by NODE)
   // -----------------------------
 
-  let activeLoops = {}; // per paragraph index
+  /** Map<Node, Array<{key:number, interval:number}>> */
+  const activeLoops = new Map();
+
+  function ensureParagraphBlocks() {
+    const hasBlock = Array.from(page.childNodes).some(
+      (n) =>
+        n.nodeType === 1 &&
+        /(block|list-item|table|grid|flex)/.test(getComputedStyle(n).display)
+    );
+    if (hasBlock) return;
+
+    if (page.childNodes.length === 0) {
+      const d = document.createElement("div");
+      d.appendChild(document.createElement("br"));
+      page.appendChild(d);
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    while (page.firstChild) wrapper.appendChild(page.firstChild);
+    page.appendChild(wrapper);
+  }
 
   function getParagraphNodes() {
-    // Treat each direct child block of .page as a "paragraph".
-    // If there are no children, treat the page itself as one paragraph.
-    const children = Array.from(page.childNodes).filter((n) => {
-      if (n.nodeType === 1) return true; // element (div, p, etc.)
-      if (n.nodeType === 3 && n.nodeValue.trim().length) return true; // text node
-      return false;
+    ensureParagraphBlocks();
+    const blocks = [];
+    page.childNodes.forEach((n) => {
+      if (n.nodeType === 1) {
+        const disp = getComputedStyle(n).display;
+        if (/(^| )(block|list-item|table|grid|flex)( |$)/.test(disp)) {
+          blocks.push(n);
+        }
+      }
     });
-    return children.length ? children : [page];
+    return blocks;
   }
 
   function nodeInnerText(node) {
     return (node.textContent || "").replace(/\u00A0/g, " ");
   }
 
-  // NEW: live mode = paragraph starting with "/"
   function isLiveParagraph(text) {
     return text.trimStart().startsWith("/");
   }
 
+  function clearLoopsForNode(node) {
+    const arr = activeLoops.get(node);
+    if (arr) {
+      arr.forEach((loopObj) => clearInterval(loopObj.interval));
+      activeLoops.delete(node);
+    }
+  }
+
   function updateParagraphs() {
     const paras = getParagraphNodes();
+    const currentSet = new Set(paras);
 
-    paras.forEach((node, idx) => {
+    for (const [node, loops] of activeLoops.entries()) {
+      if (!currentSet.has(node)) {
+        loops.forEach((l) => clearInterval(l.interval));
+        activeLoops.delete(node);
+      }
+    }
+
+    paras.forEach((node) => {
       const text = nodeInnerText(node).trim();
+      const live = isLiveParagraph(text);
+      const endsWithDot = text.endsWith(".");
 
-      // skip live paragraphs (start with "/")
-      if (isLiveParagraph(text)) {
-        if (activeLoops[idx]) {
-          activeLoops[idx].forEach((loopObj) =>
-            clearInterval(loopObj.interval)
-          );
-          delete activeLoops[idx];
-        }
+      if (!live && !endsWithDot) {
+        clearLoopsForNode(node);
         return;
       }
 
-      // only paragraphs that end with "." are active
-      if (!text.endsWith(".")) {
-        if (activeLoops[idx]) {
-          activeLoops[idx].forEach((loopObj) =>
-            clearInterval(loopObj.interval)
-          );
-        }
-        delete activeLoops[idx];
-        return;
+      if (!activeLoops.has(node)) {
+        activeLoops.set(node, []);
+        if (!live && endsWithDot) playParagraphNode(node);
       }
 
-      // if it's new, play it once
-      if (!activeLoops[idx]) {
-        activeLoops[idx] = [];
-        playParagraphNode(node);
-      }
+      if (!live && !endsWithDot) return;
 
-      // handle loop blocks inside [ ... ] (recomputed every tick to capture live edits/formatting)
       const segments = getTextSegmentsWithAttrs(node);
       const stream = charStreamFromSegments(segments);
       const loopRegions = extractLoopRegions(stream);
 
-      // clean up loops that don't exist anymore
-      activeLoops[idx] = activeLoops[idx].filter((loopObj) => {
+      let list = activeLoops.get(node) || [];
+      list = list.filter((loopObj) => {
         if (loopObj.key >= loopRegions.length) {
           clearInterval(loopObj.interval);
           return false;
@@ -604,9 +639,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return true;
       });
 
-      // start new loops
       loopRegions.forEach((region, regionIndex) => {
-        if (activeLoops[idx].some((l) => l.key === regionIndex)) return;
+        if (list.some((l) => l.key === regionIndex)) return;
 
         const interval = setInterval(() => {
           const segsNow = getTextSegmentsWithAttrs(node);
@@ -617,27 +651,25 @@ document.addEventListener("DOMContentLoaded", () => {
           playCharRegion(r);
         }, 2000);
 
-        activeLoops[idx].push({ key: regionIndex, interval });
+        list.push({ key: regionIndex, interval });
       });
+
+      activeLoops.set(node, list);
     });
   }
 
-  // check for changes when typing
   page.addEventListener("keyup", () => {
     updateParagraphs();
     updateFontDisplay();
   });
 
-  // live typing mode for "/" paragraphs
   page.addEventListener("keydown", (e) => {
-    // ignore shortcuts
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const sel = window.getSelection();
     const node = sel?.anchorNode;
     if (!node) return;
 
-    // find the containing block element (paragraph-ish)
     let el = node.nodeType === 3 ? node.parentElement : node;
     while (
       el &&
@@ -678,7 +710,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // help panel toggle
   const helpBtn = document.querySelector(".help-btn");
   const helpPanel = document.querySelector(".help-panel");
-
   helpBtn.addEventListener("click", () => {
     helpPanel.classList.toggle("active");
   });
