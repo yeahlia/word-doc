@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const page = document.querySelector(".page");
 
   // letter to note
-  const LETTER_TO_NOTE = {
+  const letterToNote = {
     a: "C4",
     b: "D4",
     c: "E4",
@@ -308,10 +308,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let note;
     // picks a note ad then calls chord function
     if (ch === "?") {
-      const pool = Object.values(LETTER_TO_NOTE);
+      const pool = Object.values(letterToNote);
       note = pool[Math.floor(Math.random() * pool.length)];
     } else {
-      note = LETTER_TO_NOTE[ch.toLowerCase()];
+      note = letterToNote[ch.toLowerCase()];
     }
     if (!note) return;
     playChordWithAttrs([note], 1.0, when, attrs);
