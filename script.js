@@ -329,8 +329,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ====================== PER CHATACTER FORMATTING =========================
 
   function collectSegmentsWithAttrs(root) {
-    const out = [];
-    const base = attrsFrom(page);
+    const out = []; // holds all the attributes eventually
+    const base = attrsFrom(page); //default styling in case not styled
 
     function walk(n, inherited) {
       if (n.nodeType === Node.TEXT_NODE) {
