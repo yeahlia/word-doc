@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const page = document.querySelector(".page");
 
   // letter to note
+  // narrowed range (C4–B5) for smoother, less harsh tone
   const letterToNote = {
     a: "C4",
     b: "D4",
@@ -20,25 +21,25 @@ document.addEventListener("DOMContentLoaded", () => {
     e: "G4",
     f: "A4",
     g: "B4",
-    h: "C5",
-    i: "D5",
-    j: "E5",
-    k: "F5",
-    l: "G5",
-    m: "A5",
-    n: "B5",
-    o: "C6",
-    p: "D6",
-    q: "E6",
-    r: "F6",
-    s: "G6",
-    t: "A6",
-    u: "B6",
-    v: "C7",
-    w: "D7",
-    x: "E7",
-    y: "F7",
-    z: "G7",
+    h: "B4",
+    i: "C5",
+    j: "D5",
+    k: "E5",
+    l: "F5",
+    m: "G5",
+    n: "A5",
+    o: "B5",
+    p: "C5",
+    q: "D4",
+    r: "E4",
+    s: "F4",
+    t: "G4",
+    u: "A4",
+    v: "B4",
+    w: "C5",
+    x: "D5",
+    y: "E5",
+    z: "F5",
   };
 
   // unlock Tone.js once something is clicked or a key is pressed
@@ -172,35 +173,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // ========================= STYLING =========================
 
   function colorBucket(colorStr) {
-    const s = (colorStr || "").toLowerCase().trim();
-    if (!s) return "black";
-    if (s === "blue") return "blue";
-    if (s === "red") return "red";
-    if (s === "black") return "black";
-    if (s.startsWith("#")) {
-      if (s.length === 7) {
-        const r = parseInt(s.slice(1, 3), 16),
-          g = parseInt(s.slice(3, 5), 16),
-          b = parseInt(s.slice(5, 7), 16);
-        if (b >= r && b >= g) return "blue";
-        if (r >= g && r >= b) return "red";
-      }
+    if (!colorStr) return "black";
+    const s = colorStr.toLowerCase().trim();
+
+    // named colours first
+    if (s === "blue" || s.includes("blue")) return "blue";
+    if (s === "red" || s.includes("red")) return "red";
+    if (s === "black" || s.includes("black")) return "black";
+
+    // parse rgb() values safely
+    const rgb = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (rgb) {
+      const r = +rgb[1],
+        g = +rgb[2],
+        b = +rgb[3];
+      // decide by dominant channel, but only if it’s clearly dominant
+      if (b > r + 20 && b > g + 20) return "blue";
+      if (r > g + 20 && r > b + 20) return "red";
       return "black";
     }
-    if (s.startsWith("rgb(")) {
-      const m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/i);
-      if (m) {
-        const r = +m[1],
-          g = +m[2],
-          b = +m[3];
-        if (b >= r && b >= g) return "blue";
-        if (r >= g && r >= b) return "red";
-      }
+
+    // hex colours
+    if (s.startsWith("#") && s.length === 7) {
+      const r = parseInt(s.slice(1, 3), 16),
+        g = parseInt(s.slice(3, 5), 16),
+        b = parseInt(s.slice(5, 7), 16);
+      if (b > r + 20 && b > g + 20) return "blue";
+      if (r > g + 20 && r > b + 20) return "red";
       return "black";
     }
-    // any other named color
-    if (s.includes("blue")) return "blue";
-    if (s.includes("red")) return "red";
+
     return "black";
   }
 
@@ -241,17 +243,100 @@ document.addEventListener("DOMContentLoaded", () => {
     18: 10.0,
   };
 
+  // ====================== SIMPLE OCTAVE-LIMITED SCALE =========================
+  function getScaleNotes(rootNote, isMajor) {
+    // extract the note letter (e.g. "E") and octave number (e.g. 4)
+    const match = rootNote.match(/^([A-G])(\d)$/);
+    if (!match) return [];
+    const [, rootLetter, octaveStr] = match;
+    const octave = parseInt(octaveStr);
+
+    // base chromatic scale in semitone order
+    const chromatic = [
+      "C",
+      "C#",
+      "D",
+      "D#",
+      "E",
+      "F",
+      "F#",
+      "G",
+      "G#",
+      "A",
+      "A#",
+      "B",
+    ];
+    const rootIndex = chromatic.indexOf(rootLetter);
+    if (rootIndex === -1) return [];
+
+    // define intervals (major/minor)
+    const intervals = isMajor
+      ? [0, 2, 4, 5, 7, 9, 11] // major
+      : [0, 2, 3, 5, 7, 8, 10]; // minor
+
+    // build scale notes and keep them within the same octave
+    const scale = intervals.map((i) => {
+      const noteName = chromatic[(rootIndex + i) % 12];
+      return noteName + octave;
+    });
+
+    return scale;
+  }
+
   // how everything plays based on the attributes from before
   function playChordWithAttrs(notes, durSec, when, attrs) {
     if (!notes || !notes.length) return;
 
+    console.log("Detected color bucket:", attrs.bucket);
+
     const pt = Math.max(6, Math.min(18, Math.round(attrs.pt || 12)));
-    const vel = LOUDNESS[pt] ?? 0.7;
+    let vel = LOUDNESS[pt] ?? 0.7;
+
+    // normalize loudness so sine (black) isn't too quiet
+    if (attrs.bucket === "black") vel *= 100; // boost sine
+    if (attrs.bucket === "blue") vel *= 1.1; // slight bump for square
+    if (attrs.bucket === "red") vel *= 0.9; // tame sawtooth a bit
 
     // color determines oscillator
-    let osc = { type: "sine", partialCount: 1 };
-    if (attrs.bucket === "blue") osc = { type: "square", partialCount: 8 };
-    if (attrs.bucket === "red") osc = { type: "sawtooth", partialCount: 16 };
+    let osc;
+    let postFilter = null;
+    let gainLevel = 1.0; // loudness compensation
+
+    switch (attrs.bucket) {
+      case "black":
+        osc = { type: "sine" };
+        postFilter = new Tone.Filter({
+          type: "lowpass",
+          frequency: 1200,
+          Q: 0.8,
+        });
+        gainLevel = 2.2;
+        break;
+
+      case "blue":
+        osc = { type: "square" };
+        postFilter = new Tone.Filter({
+          type: "highpass",
+          frequency: 1500,
+          Q: 0.5,
+        });
+        gainLevel = 1.3;
+        break;
+
+      case "red":
+        // bright, edgy sawtooth with less gain
+        osc = { type: "sawtooth" };
+        postFilter = new Tone.Filter({
+          type: "highpass",
+          frequency: 1200,
+          Q: 0.6,
+        });
+        gainLevel = 0.9;
+        break;
+
+      default:
+        osc = { type: "sine" };
+    }
 
     // build an effects chain based on attributes (so everything stacks)
     const disposables = [];
@@ -267,28 +352,50 @@ document.addEventListener("DOMContentLoaded", () => {
       chain.push(rev);
       disposables.push(rev);
     }
-    const sink = new Tone.Gain().toDestination();
+
+    // final output stage
+    const sink = new Tone.Gain(gainLevel).toDestination();
     disposables.push(sink);
-    // connect chain in order
+
+    // insert timbre filter (if any) before output
+    if (postFilter) chain.push(postFilter);
+
+    // connect everything in order
     for (let i = 0; i < chain.length; i++) {
       const a = chain[i],
         b = chain[i + 1] || sink;
       a.connect(b);
     }
+
     const inputNode = chain.length ? chain[0] : sink;
 
     // creates one synth per note
     const synths = notes.map(() => {
-      const s = new Tone.Synth({
-        oscillator: osc,
-        envelope: { attack: 0.01, decay: 0.12, sustain: 0.65, release: 0.25 },
-      });
+      // build a new synth fresh every time
+      const s = new Tone.Synth();
+
+      // ✅ force-set the oscillator type manually each time
+      s.oscillator.type = osc.type;
+
+      // apply envelope settings manually
+      s.envelope.attack = 0.01;
+      s.envelope.decay = 0.12;
+      s.envelope.sustain = 0.65;
+      s.envelope.release = 0.25;
+
+      // disconnect default routing (Tone auto-connects to master)
+      s.disconnect();
+      // connect into your custom effects chain
       s.connect(inputNode);
+
+      // italic text = vibrato
       if (attrs.italic) {
         const lfo = new Tone.LFO({ frequency: 6, min: -75, max: 75 }).start();
         lfo.connect(s.detune);
         disposables.push(lfo);
       }
+
+      disposables.push(s);
       return s;
     });
 
@@ -317,12 +424,33 @@ document.addEventListener("DOMContentLoaded", () => {
     playChordWithAttrs([note], 1.0, when, attrs);
   }
 
-  // make sure words are played at once
+  // ====================== WORD CHORD =========================
   function playWordAsChord(lettersWithAttrs, when) {
     if (!lettersWithAttrs.length) return when || Tone.now();
     const t = when ?? Tone.now();
     const dur = 1.0;
-    lettersWithAttrs.forEach(({ ch, attrs }) => playChar(ch, t, attrs));
+
+    // first letter defines key + mode
+    const first = lettersWithAttrs[0];
+    const firstNote = letterToNote[first.ch.toLowerCase()];
+    if (!firstNote) return t + dur;
+
+    const isMajor = lettersWithAttrs.length % 2 === 0; // even = major, odd = minor
+    const scaleNotes = getScaleNotes(firstNote, isMajor);
+
+    // build list of notes (first letter = root, others random from scale)
+    const chordNotes = lettersWithAttrs.map((item, i) => {
+      if (i === 0) return firstNote; // keep root
+      const randomIndex = Math.floor(Math.random() * scaleNotes.length);
+      return scaleNotes[randomIndex];
+    });
+
+    // play each letter’s note using its formatting attributes
+    lettersWithAttrs.forEach(({ ch, attrs }, i) => {
+      const note = chordNotes[i];
+      playChordWithAttrs([note], dur, t, attrs);
+    });
+
     return t + dur;
   }
 
@@ -540,4 +668,176 @@ document.addEventListener("DOMContentLoaded", () => {
   helpBtn?.addEventListener("click", () =>
     helpPanel.classList.toggle("active")
   );
+});
+
+// ==================== GUIDED ONBOARDING TUTORIAL =====================
+const overlay = document.getElementById("tutorial-overlay");
+const popup = document.getElementById("tutorial-popup");
+const popupText = document.getElementById("tutorial-text");
+const nextBtn = document.getElementById("tutorial-next");
+const skipBtn = document.getElementById("tutorial-skip");
+const finishBtn = document.getElementById("tutorial-finish");
+
+// create highlight box
+const highlightBox = document.createElement("div");
+highlightBox.className = "tutorial-highlight";
+document.body.appendChild(highlightBox);
+
+// define tutorial steps
+const tutorialSteps = [
+  {
+    text: "Welcome to Word Doc Synth! Let’s go through a quick tutorial.",
+    target: ".title-group",
+    position: "bottom",
+  },
+  {
+    text: "Type in the white page area — letters only (a–z).",
+    target: ".page",
+    position: "right",
+  },
+  {
+    text: "Add a period (.) at the end of a sentence to play your paragraph.",
+    target: ".page",
+    position: "right",
+  },
+  {
+    text: "Use [ ... ] to loop sections. Loops keep playing until deleted. Make sure to add a .",
+    target: ".page",
+    position: "right",
+  },
+  {
+    text: "Start a paragraph with / to play letters live as you type. Don't know what to play? Try ?",
+    target: ".page",
+    position: "right",
+  },
+  {
+    text: "That’s it! Try and explore formatting the text. Good luck!",
+    target: ".toolbar",
+    position: "center",
+  },
+];
+
+let current = 0;
+
+// --- ensure overlay covers full document height ---
+function resizeOverlayHeight() {
+  const docHeight = Math.max(
+    document.body.scrollHeight,
+    document.documentElement.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.offsetHeight,
+    document.body.clientHeight,
+    document.documentElement.clientHeight
+  );
+  overlay.style.height = docHeight + "px";
+}
+
+function showStep() {
+  const step = tutorialSteps[current];
+  const el = document.querySelector(step.target);
+  if (!el) return;
+
+  resizeOverlayHeight();
+
+  const rect = el.getBoundingClientRect();
+  const scrollY = window.scrollY || document.documentElement.scrollTop;
+  const scrollX = window.scrollX || document.documentElement.scrollLeft;
+
+  // === special case: first step (Welcome screen) ===
+  if (current === 0) {
+    highlightBox.style.display = "none"; // hide glow
+    overlay.style.background = "rgba(0, 0, 0, 0.7)"; // fully dim everything
+    overlay.style.clipPath = "none"; // no transparent cutout
+
+    // center popup on screen
+    popupText.textContent = step.text;
+    popup.classList.remove("hidden");
+    overlay.classList.remove("hidden");
+
+    const popupTop = window.innerHeight / 2 - popup.offsetHeight / 2 + scrollY;
+    const popupLeft = window.innerWidth / 2 - popup.offsetWidth / 2 + scrollX;
+    popup.style.top = `${popupTop}px`;
+    popup.style.left = `${popupLeft}px`;
+    return; // stop here for step 1
+  }
+
+  // === Glow highlight box ===
+  highlightBox.style.display = "block";
+  const radius = 8;
+  highlightBox.style.top = `${rect.top + scrollY - 6}px`;
+  highlightBox.style.left = `${rect.left + scrollX - 6}px`;
+  highlightBox.style.width = `${rect.width + 12}px`;
+  highlightBox.style.height = `${rect.height + 12}px`;
+
+  // === Transparent spotlight cut-out (keeps target bright) ===
+  const top = rect.top + scrollY - radius;
+  const left = rect.left + scrollX - radius;
+  const right = rect.right + scrollX + radius;
+  const bottom = rect.bottom + scrollY + radius;
+  const w = document.documentElement.scrollWidth;
+  const h = Math.max(
+    document.documentElement.scrollHeight,
+    document.body.scrollHeight
+  );
+
+  overlay.style.background = "rgba(0, 0, 0, 0.6)";
+  overlay.style.clipPath = `polygon(
+    0 0, ${w}px 0, ${w}px ${h}px, 0 ${h}px,
+    0 ${top}px, ${left}px ${top}px, ${left}px ${bottom}px,
+    ${right}px ${bottom}px, ${right}px ${top}px, 0 ${top}px
+  )`;
+
+  // === Position popup near target ===
+  popupText.textContent = step.text;
+  popup.classList.remove("hidden");
+  overlay.classList.remove("hidden");
+
+  let popupTop = rect.bottom + scrollY + 12;
+  let popupLeft = rect.left + scrollX;
+  if (step.position === "right") {
+    popupTop = rect.top + scrollY;
+    popupLeft = rect.right + scrollX + 15;
+  } else if (step.position === "left") {
+    popupTop = rect.top + scrollY;
+    popupLeft = rect.left + scrollX - popup.offsetWidth - 15;
+  } else if (step.position === "center") {
+    popupTop = window.innerHeight / 2 - popup.offsetHeight / 2 + scrollY;
+    popupLeft = window.innerWidth / 2 - popup.offsetWidth / 2 + scrollX;
+  }
+
+  popup.style.top = `${popupTop}px`;
+  popup.style.left = `${popupLeft}px`;
+}
+
+// --- button controls ---
+nextBtn.addEventListener("click", () => {
+  current++;
+  if (current >= tutorialSteps.length - 1) {
+    // when reaching the last step
+    nextBtn.classList.add("hidden");
+    skipBtn.classList.add("hidden");
+    finishBtn.classList.remove("hidden");
+  }
+  if (current < tutorialSteps.length) {
+    showStep();
+  }
+});
+
+finishBtn.addEventListener("click", () => {
+  overlay.classList.add("hidden");
+  popup.classList.add("hidden");
+  highlightBox.style.display = "none";
+});
+
+skipBtn.addEventListener("click", () => {
+  overlay.classList.add("hidden");
+  popup.classList.add("hidden");
+  highlightBox.style.display = "none";
+});
+
+// start tutorial on load
+window.addEventListener("load", () => {
+  current = 0;
+  highlightBox.style.display = "block";
+  showStep();
 });

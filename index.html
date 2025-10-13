@@ -58,8 +58,6 @@
     <!-- help panel -->
     <div class="help-panel">
       <h3>How to Use Word Doc Synth</h3>
-      <strong>REMINDER: NOTHING WILL PLAY IF . ISN'T USED!</strong>
-      <br /><br />
       Letter → single sustained frequency (default 1 second).
       <br /><br />
       Word → chord (all letters played together once).
@@ -71,14 +69,27 @@
       / at the start of a paragraph → live typing mode (plays letters as you
       type)
       <br /><br />
-      Formatting affects sound:
+      Formatting also affects sound →
       <br />
-      • Bold = distortion &nbsp;• Italic = vibrato &nbsp;• Underline = reverb
-      <br /><br />
-      Color → waveform: Black = sine, Blue = square, Red = sawtooth.
-      <br /><br />
+      <strong>Bold</strong> → distortion, <em>Italic</em> → vibrato,
+      <u>Underline</u> → reverb <br /><br />
+      Black → sine wave, <span style="color: blue">Blue</span> → square wave,
+      <span style="color: red">Red</span> → sawtooth wave <br /><br />
       . → plays everything in that paragraph (nothing will sound if this isn't
       typed)
+    </div>
+
+    <!-- onboarding tutorial overlay -->
+    <div id="tutorial-overlay" class="tutorial-overlay hidden"></div>
+
+    <!-- floating tutorial box -->
+    <div id="tutorial-popup" class="tutorial-popup hidden">
+      <p id="tutorial-text"></p>
+      <div class="tutorial-buttons">
+        <button id="tutorial-next">Next</button>
+        <button id="tutorial-skip">Skip Tutorial</button>
+        <button id="tutorial-finish" class="hidden">Finish Tutorial</button>
+      </div>
     </div>
   </body>
 </html>
