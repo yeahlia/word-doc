@@ -11,8 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // main edit field
   const page = document.querySelector(".page");
 
-  // letter to note
-  // narrowed range (C4–B5) for smoother, less harsh tone
+  // letter to note - range limited for a less harsh tone
   const letterToNote = {
     a: "C4",
     b: "D4",
@@ -42,30 +41,32 @@ document.addEventListener("DOMContentLoaded", () => {
     z: "F5",
   };
 
-  // unlock Tone.js once something is clicked or a key is pressed
-  // kept running into an issue where sound sometimes wouldnt play
+  // unlock Tone.js once something is clicked or a key is pressed - kept running into an issue where sound sometimes wouldnt play
   const unlock = async () => {
     if (Tone.context.state !== "running") {
       await Tone.start();
     }
   };
+
+  // starts tone,js when something is clicked or typed
   document.body.addEventListener("click", unlock, { once: true });
   document.body.addEventListener("keydown", unlock, { once: true });
 
   // ===================== TOOLBAR =========================
-  // exec command?
+  // exec command API MEOW
 
+  // applies command bold
   function toggleCmd(cmd) {
-    // bold italic underline
     document.execCommand("styleWithCSS", false, true);
     document.execCommand(cmd, false, null);
   }
+  //color
   function setColor(color) {
-    //color
     document.execCommand("styleWithCSS", false, true);
     document.execCommand("foreColor", false, color);
   }
 
+  // loops through all the tool bar buttons and finds the one labeled B, I and then U
   const boldBtn = Array.from(
     document.querySelectorAll(".tool-btn.toggle")
   ).find((b) => b.textContent.trim().toUpperCase() === "B");
@@ -75,10 +76,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const underlineBtn = Array.from(
     document.querySelectorAll(".tool-btn.toggle")
   ).find((b) => b.textContent.trim().toUpperCase() === "U");
+
+  //when clicked, the buttons call toggleCmd to apply formatting
   boldBtn?.addEventListener("click", () => toggleCmd("bold"));
   italicBtn?.addEventListener("click", () => toggleCmd("italic"));
   underlineBtn?.addEventListener("click", () => toggleCmd("underline"));
 
+  // attaches click listnered and applies the color to the text
   document
     .querySelector(".color-btn.black")
     ?.addEventListener("click", () => setColor("black"));
@@ -89,8 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
     .querySelector(".color-btn.red")
     ?.addEventListener("click", () => setColor("red"));
 
-  // font size UI (range of 6–18 size, convert to px by 0.75)
+  // gets the number indicator
   const fontDisplay = document.querySelector(".font-size-display");
+
+  // finds the plus and minus buttons on the toolb ar
   const minusBtn = Array.from(document.querySelectorAll(".tool-btn")).find(
     (b) => b.textContent.trim() === "-"
   );
@@ -98,9 +104,11 @@ document.addEventListener("DOMContentLoaded", () => {
     (b) => b.textContent.trim() === "+"
   );
 
+  // helps convert between pixels and points
   const ptFromPx = (px) => Math.round((px || 16) * 0.75);
   const pxFromPt = (pt) => pt / 0.75;
 
+  // reads font size and pixels, if nothing sleected it goes to default
   function currentNodePx() {
     const sel = window.getSelection();
     if (sel && sel.rangeCount) {
@@ -114,24 +122,32 @@ document.addEventListener("DOMContentLoaded", () => {
     return parseFloat(getComputedStyle(page).fontSize) || 16;
   }
 
+  // increases or decreases the size, with a limit beteween 6-18 and updates UI display
   function updateFontDisplay() {
     if (fontDisplay)
       fontDisplay.textContent = String(ptFromPx(currentNodePx()));
   }
 
+  // update sthe number in toolbar
   function adjustFontSize(deltaPt) {
-    const sel = window.getSelection();
+    const sel = window.getSelection(); // gets the current selection
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
 
+    // wraps selected text inside new span
     const wrap = document.createElement("span");
     range.surroundContents(wrap);
 
+    // current size in pts
     let pt = ptFromPx(
       parseFloat(getComputedStyle(wrap).fontSize) || currentNodePx()
     );
+
+    // add or subtract pts
     pt = Math.max(6, Math.min(18, pt + deltaPt));
+
+    // apply CSS stlye
     wrap.style.fontSize = `${pxFromPt(pt)}px`;
 
     // keep selection
@@ -144,19 +160,22 @@ document.addEventListener("DOMContentLoaded", () => {
     fontButtons();
   }
 
-  // function that hides the font buttons if its 6 or 18
+  // if size is min or max, hides the corresponding button
   function fontButtons() {
     const pt = parseFloat(fontDisplay?.textContent || "12");
     if (minusBtn) minusBtn.style.visibility = pt <= 6 ? "hidden" : "visible";
     if (plusBtn) plusBtn.style.visibility = pt >= 18 ? "hidden" : "visible";
   }
 
+  // connects buttons to the adjustment
   minusBtn?.addEventListener("click", () => adjustFontSize(-1));
   plusBtn?.addEventListener("click", () => adjustFontSize(+1));
   updateFontDisplay();
   fontButtons();
 
-  // ---------- RESET BUTTON --------------
+  // =========================RESET BUTTON ===========================
+
+  //clears the document content and stops all loops
   function fullReset() {
     stopAllLoops();
     page.innerHTML = "";
@@ -166,12 +185,15 @@ document.addEventListener("DOMContentLoaded", () => {
     updateFontDisplay();
     page.focus();
   }
+
+  // connects the button to the function
   document
     .querySelector(".tool-btn.reset")
     ?.addEventListener("click", fullReset);
 
   // ========================= STYLING =========================
-
+  // MEOW
+  // cleans any color string that comes from CSS so it doesnt break
   function colorBucket(colorStr) {
     if (!colorStr) return "black";
     const s = colorStr.toLowerCase().trim();
@@ -181,13 +203,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (s === "red" || s.includes("red")) return "red";
     if (s === "black" || s.includes("black")) return "black";
 
-    // parse rgb() values safely
+    // uses rgb colors
     const rgb = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
     if (rgb) {
       const r = +rgb[1],
         g = +rgb[2],
         b = +rgb[3];
       // decide by dominant channel, but only if it’s clearly dominant
+      // added this because I had a lot of issues with the blue and black getting considered the same
       if (b > r + 20 && b > g + 20) return "blue";
       if (r > g + 20 && r > b + 20) return "red";
       return "black";
@@ -206,19 +229,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return "black";
   }
 
-  // reads if the bold italic undelrine color and font size and returns it into attributes
   function attrsFrom(el) {
+    // gets the computed css for any of the nodes
     const cs = getComputedStyle(el);
     const fw = cs.fontWeight;
+
+    // detects if font is bold by name or weight
     const bold =
       (typeof fw === "string" && fw.toLowerCase() === "bold") ||
       parseInt(fw, 10) >= 600;
+
+    // becomes true if the text is italic
     const italic = cs.fontStyle === "italic";
+
+    // checks for underling text with differnet fallbacks considering browsers
     const underline = (
       cs.textDecorationLine ||
       cs.textDecoration ||
       ""
     ).includes("underline");
+
+    // converts color and font size so tone.js can use
     const bucket = colorBucket(cs.color);
     const pt = ptFromPx(parseFloat(cs.fontSize) || 16);
     return { bold, italic, underline, bucket, pt };
@@ -226,32 +257,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ========================= AUDIO =======================
 
-  // loudness table
+  // loudness for font
   const LOUDNESS = {
-    6: 0.03,
-    7: 0.06,
-    8: 0.1,
-    9: 0.18,
-    10: 0.3,
-    11: 0.5,
-    12: 0.8,
-    13: 1.2,
+    6: 0.0001,
+    7: 0.0004,
+    8: 0.001,
+    9: 0.005,
+    10: 0.02,
+    11: 0.08,
+    12: 0.3,
+    13: 0.9,
     14: 2.0,
-    15: 3.3,
-    16: 5.0,
-    17: 7.0,
-    18: 10.0,
+    15: 4.5,
+    16: 8.0,
+    17: 15.0,
+    18: 25.0,
   };
 
-  // ====================== SIMPLE OCTAVE-LIMITED SCALE =========================
   function getScaleNotes(rootNote, isMajor) {
-    // extract the note letter (e.g. "E") and octave number (e.g. 4)
+    // extract the note letter and octave number
     const match = rootNote.match(/^([A-G])(\d)$/);
     if (!match) return [];
     const [, rootLetter, octaveStr] = match;
     const octave = parseInt(octaveStr);
 
-    // base chromatic scale in semitone order
+    // defines the chromatic scale and finds where the root note is
+    // this was basically copied and pasted from my last semester's assignment! I'll link it in the reflection because I am super proud of that one as well
     const chromatic = [
       "C",
       "C#",
@@ -269,12 +300,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const rootIndex = chromatic.indexOf(rootLetter);
     if (rootIndex === -1) return [];
 
-    // define intervals (major/minor)
-    const intervals = isMajor
-      ? [0, 2, 4, 5, 7, 9, 11] // major
-      : [0, 2, 3, 5, 7, 8, 10]; // minor
+    // defines intervals (major/minor)
+    const intervals = isMajor ? [0, 4, 7] : [0, 3, 7];
 
-    // build scale notes and keep them within the same octave
+    // build scale notes and keep them within the same octave so its less harsh
     const scale = intervals.map((i) => {
       const noteName = chromatic[(rootIndex + i) % 12];
       return noteName + octave;
@@ -283,51 +312,55 @@ document.addEventListener("DOMContentLoaded", () => {
     return scale;
   }
 
-  // how everything plays based on the attributes from before
+  // main playback function! takes the array of notes and attributes and palys it, and skips if empty
   function playChordWithAttrs(notes, durSec, when, attrs) {
     if (!notes || !notes.length) return;
 
-    console.log("Detected color bucket:", attrs.bucket);
+    // console.log("color:", attrs.bucket);
 
+    // clamps font size MEOW
     const pt = Math.max(6, Math.min(18, Math.round(attrs.pt || 12)));
     let vel = LOUDNESS[pt] ?? 0.7;
 
-    // normalize loudness so sine (black) isn't too quiet
+    // had an issue where red was super loud compared to the rest, so I added this manually to make them aroound the same volume
     if (attrs.bucket === "black") vel *= 100; // boost sine
-    if (attrs.bucket === "blue") vel *= 1.1; // slight bump for square
-    if (attrs.bucket === "red") vel *= 0.9; // tame sawtooth a bit
+    if (attrs.bucket === "blue") vel *= 1.1; // slight boost for square
+    if (attrs.bucket === "red") vel *= 0.9; // lower sawtooth a bit
 
-    // color determines oscillator
+    // sets up the placeholder variables for the oscillators
     let osc;
     let postFilter = null;
     let gainLevel = 1.0; // loudness compensation
 
+    // based on the color, change the wave
     switch (attrs.bucket) {
+      // black color
       case "black":
-        osc = { type: "sine" };
+        osc = { type: "sine" }; // sine wave
         postFilter = new Tone.Filter({
-          type: "lowpass",
+          type: "lowpass", // adds low pass filter
           frequency: 1200,
           Q: 0.8,
         });
         gainLevel = 2.2;
         break;
 
+      // blue clor
       case "blue":
-        osc = { type: "square" };
+        osc = { type: "square" }; // square wave
         postFilter = new Tone.Filter({
-          type: "highpass",
+          type: "highpass", // highpass filter
           frequency: 1500,
           Q: 0.5,
         });
         gainLevel = 1.3;
         break;
 
+      // red color
       case "red":
-        // bright, edgy sawtooth with less gain
-        osc = { type: "sawtooth" };
+        osc = { type: "sawtooth" }; // sawtooth wave
         postFilter = new Tone.Filter({
-          type: "highpass",
+          type: "highpass", // highpass
           frequency: 1200,
           Q: 0.6,
         });
@@ -338,72 +371,76 @@ document.addEventListener("DOMContentLoaded", () => {
         osc = { type: "sine" };
     }
 
-    // build an effects chain based on attributes (so everything stacks)
+    // arrays to hold the chain of audio effects, and stuff to get cleaned up alter
     const disposables = [];
     const chain = [];
 
+    // if the text is bold, adds distortion
     if (attrs.bold) {
       const dist = new Tone.Distortion(0.95);
       chain.push(dist);
       disposables.push(dist);
     }
+
+    // if the text is underlined, adds reverb
     if (attrs.underline) {
       const rev = new Tone.Reverb({ decay: 5.0, wet: 0.75 });
       chain.push(rev);
       disposables.push(rev);
     }
 
-    // final output stage
+    // creates a volume control and connects to the output
     const sink = new Tone.Gain(gainLevel).toDestination();
     disposables.push(sink);
 
-    // insert timbre filter (if any) before output
+    // adds to chain
     if (postFilter) chain.push(postFilter);
 
-    // connect everything in order
+    // connect everything to chain in order
     for (let i = 0; i < chain.length; i++) {
       const a = chain[i],
         b = chain[i + 1] || sink;
       a.connect(b);
     }
 
+    // determines the first of the chain, puts new synths here before the effects
     const inputNode = chain.length ? chain[0] : sink;
 
-    // creates one synth per note
+    // for every note in a chord it creates a new synth
     const synths = notes.map(() => {
-      // build a new synth fresh every time
       const s = new Tone.Synth();
 
-      // ✅ force-set the oscillator type manually each time
+      // sets oscillator type
       s.oscillator.type = osc.type;
 
-      // apply envelope settings manually
+      // settings
       s.envelope.attack = 0.01;
       s.envelope.decay = 0.12;
       s.envelope.sustain = 0.65;
       s.envelope.release = 0.25;
 
-      // disconnect default routing (Tone auto-connects to master)
+      // disconnect default routing
       s.disconnect();
-      // connect into your custom effects chain
+      // connect into the custom effects chain
       s.connect(inputNode);
 
-      // italic text = vibrato
+      // if text is italic, then it has a vibrato effect
       if (attrs.italic) {
         const lfo = new Tone.LFO({ frequency: 6, min: -75, max: 75 }).start();
         lfo.connect(s.detune);
         disposables.push(lfo);
       }
 
+      // console.log(attrs.pt);
+
       disposables.push(s);
       return s;
     });
 
-    // trigger everything
+    // removes all synths and efects when finish playing! for memory and also overalap MEOW
     const t = when ?? Tone.now();
     synths.forEach((s, i) => s.triggerAttackRelease(notes[i], durSec, t, vel));
 
-    // cleanup after sound finishes with timeout
     const ms = Math.max(0, (t - Tone.now()) * 1000) + durSec * 1000 + 600;
     setTimeout(() => {
       synths.forEach((s) => s.dispose());
@@ -413,42 +450,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function playChar(ch, when, attrs) {
     let note;
-    // picks a note ad then calls chord function
+
+    // picks a random note from letterToNote using math.random()
     if (ch === "?") {
       const pool = Object.values(letterToNote);
       note = pool[Math.floor(Math.random() * pool.length)];
+
+      // otherwise it finds the letter's pitch based on letterToNote
     } else {
       note = letterToNote[ch.toLowerCase()];
     }
     if (!note) return;
+
+    // plays the note with the and the attribtues
     playChordWithAttrs([note], 1.0, when, attrs);
   }
 
   // ====================== WORD CHORD =========================
   function playWordAsChord(lettersWithAttrs, when) {
+    // the word array is empty, it stops, otherwise have a 1 sec duration per word
     if (!lettersWithAttrs.length) return when || Tone.now();
     const t = when ?? Tone.now();
     const dur = 1.0;
 
-    // first letter defines key + mode
+    // first letter defines root pitch
     const first = lettersWithAttrs[0];
     const firstNote = letterToNote[first.ch.toLowerCase()];
     if (!firstNote) return t + dur;
 
     const isMajor = lettersWithAttrs.length % 2 === 0; // even = major, odd = minor
-    const scaleNotes = getScaleNotes(firstNote, isMajor);
+    const baseScale = getScaleNotes(firstNote, isMajor); // uses the scale notes to generate triad
 
-    // build list of notes (first letter = root, others random from scale)
-    const chordNotes = lettersWithAttrs.map((item, i) => {
-      if (i === 0) return firstNote; // keep root
-      const randomIndex = Math.floor(Math.random() * scaleNotes.length);
-      return scaleNotes[randomIndex];
+    // builds a triad
+    const triad = [
+      baseScale[0],
+      baseScale[2] || baseScale[1] || baseScale[0],
+      baseScale[4] || baseScale[2] || baseScale[0],
+    ];
+
+    // function to shift note up/down an octave MEOW
+    // i used AI assistance with this part, will write more about in my reflection
+    function shiftOctave(note, shift) {
+      if (!note || typeof note !== "string") return note;
+      const match = note.match(/^([A-G]#?)(\d)$/);
+      if (!match) return note;
+      const [, letter, octaveStr] = match;
+      let octave = parseInt(octaveStr);
+      octave += shift;
+      return letter + octave;
+    }
+
+    // goes through each letter in the word, and picks a triad tone
+    const chordNotes = lettersWithAttrs.map(({ ch }, i) => {
+      const baseNote = triad[i % triad.length] || triad[0];
+
+      // if the letters are N-Z, it drops an octave with the triads to keep everything within a pleasant range
+      const isUpper = ch.toLowerCase() >= "n" && ch.toLowerCase() <= "z";
+      return shiftOctave(baseNote, isUpper ? -1 : 0);
     });
 
-    // play each letter’s note using its formatting attributes
+    // plays the chords with the attributes as well
     lettersWithAttrs.forEach(({ ch, attrs }, i) => {
       const note = chordNotes[i];
-      playChordWithAttrs([note], dur, t, attrs);
+      if (note) playChordWithAttrs([note], dur, t, attrs);
     });
 
     return t + dur;
@@ -456,17 +520,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ====================== PER CHATACTER FORMATTING =========================
 
+  // this was super difficult (as we discussed in class about formatting),
+  // but i was able to get it with a mix of AI assistance and MDN web docs, specfically
+  // the sections about getComputedStyle() = https://developer.mozilla.org/en-US/docs/Web/API/Window/getComputedStyle
+  //  and Traversing the DOM = https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Traversing_an_HTML_table_with_JavaScript_and_DOM_Interfaces
+
   function collectSegmentsWithAttrs(root) {
-    const out = []; // holds all the attributes eventually
+    const out = []; // holds all the attributes
     const base = attrsFrom(page); //default styling in case not styled
 
     function walk(n, inherited) {
+      // if the node is just text, it collects every character and its attributes
       if (n.nodeType === Node.TEXT_NODE) {
         const text = n.nodeValue || "";
         for (let i = 0; i < text.length; i++)
           out.push({ ch: text[i], attrs: inherited });
         return;
       }
+
+      // if the node is an element, it combines its own styling and inherited styling
       if (n.nodeType === Node.ELEMENT_NODE) {
         const a = attrsFrom(n);
         const merged = {
@@ -476,6 +548,8 @@ document.addEventListener("DOMContentLoaded", () => {
           bucket: a.bucket || inherited.bucket,
           pt: a.pt || inherited.pt,
         };
+
+        // recursion...
         n.childNodes.forEach((child) => walk(child, merged));
       }
     }
@@ -484,30 +558,36 @@ document.addEventListener("DOMContentLoaded", () => {
     return out;
   }
 
-  // find [ ... ] regions by indexes
+  // loops through the array of characters
   function extractLoopRegions(charStream) {
     const regions = [];
     const stack = [];
     for (let i = 0; i < charStream.length; i++) {
       const c = charStream[i].ch;
+
+      // if it finds a matching [ and], everything inside them is considered a looping area
       if (c === "[") stack.push(i);
       else if (c === "]" && stack.length) {
         const start = stack.pop();
-        regions.push([start + 1, i]); // inside the brackets
+        regions.push([start + 1, i]);
       }
     }
     return regions.map(([a, b]) => charStream.slice(a, b));
   }
 
-  // makes word splay one after the other (punctuation and spaces split the words/charcaters)
-  const isWordChar = (c) => /[a-z?]/i.test(c);
+  // makes word splay one after the other with consideration of spaces and punctuation
+  // made with the assistance of AI MEOW
+  const isWordChar = (c) => /[a-z?]/i.test(c); // true for letters or ?
   const isWhitespace = (c) =>
-    c === " " || c === "\t" || c === "\n" || c === "\r";
-  const isBoundary = (c) => /[.!?,;:(){}\-\u2013\u2014]/.test(c);
+    c === " " || c === "\t" || c === "\n" || c === "\r"; // white space
+  const isBoundary = (c) => /[.!?,;:(){}\-\u2013\u2014]/.test(c); // punctuation
 
+  // function that collects consecutive letters into the word array, and when it hits
+  // a white space or a break, it plays that word as a chord then resets, then repeats
   function playRegionAsWordChords(region, startTime) {
     let t = startTime ?? Tone.now();
     let word = [];
+
     for (let i = 0; i < region.length; i++) {
       const item = region[i];
       const c = item.ch === "\u00A0" ? " " : item.ch;
@@ -523,14 +603,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function playParagraphOnce(node) {
+    // collects all character and attributes from paragarph
     const stream = collectSegmentsWithAttrs(node);
+    // plays them as chords
     playRegionAsWordChords(stream);
   }
 
-  // ====================== PARAGRAPHS AND LOOPS =============
-  // something copilot etnered because my sound kept stopping when i started a new line
+  // ====================== PARAGRAPHS  ==================
+  // created with ai assistance because paragraphs wouldn't work if there was more than one
+
+  // stores active loop
   const activeLoops = new Map();
 
+  // ensures that that theres at elast one editable div (had some issues with this after deleting loops)
   function ensureAtLeastOneBlock() {
     if (!page.firstChild) {
       const d = document.createElement("div");
@@ -539,6 +624,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // if no multiple paragraphs, just wrap everything on one
   function paragraphBlocks() {
     ensureAtLeastOneBlock();
     const out = [];
@@ -558,15 +644,24 @@ document.addEventListener("DOMContentLoaded", () => {
     return out;
   }
 
+  // ============= LOOPS =================
+  // cleans up paragraph text and replace spaces
+  // mix of my original prototype and also AI because again, everything stopped working when
+  // multiple parapgraphs got involved
+
   const nodeText = (n) => (n.textContent || "").replace(/\u00A0/g, " ");
+
+  // checks if a paragraph starts with / for live typing mdoe
   const isLive = (t) => t.trimStart().startsWith("/");
 
+  // stops and removes all active loops (used for reset button)
   function stopAllLoops() {
     for (const [, arr] of activeLoops.entries())
       arr.forEach((l) => clearInterval(l.interval));
     activeLoops.clear();
   }
 
+  // stops a paragraphs loop if content is deelted
   function stopLoopsFor(node) {
     const arr = activeLoops.get(node);
     if (!arr) return;
@@ -578,6 +673,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const paras = paragraphBlocks();
     const set = new Set(paras);
 
+    // cleans up all active loops (same as above)
     for (const [node, arr] of activeLoops.entries()) {
       if (!set.has(node)) {
         arr.forEach((l) => clearInterval(l.interval));
@@ -585,16 +681,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // checks each paragraph if its live or loop mode
     paras.forEach((node) => {
       const text = nodeText(node).trim();
       const live = isLive(text);
       const endedWithDot = text.endsWith(".");
 
+      // if paragraph is inactive that means no loops
       if (!live && !endedWithDot) {
         stopLoopsFor(node);
         return;
       }
 
+      // adds parapgrah to active list if not already there and palys immediately if ends with .
       if (!activeLoops.has(node)) {
         activeLoops.set(node, []);
         if (!live && endedWithDot) playParagraphOnce(node);
@@ -604,6 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const regions = extractLoopRegions(stream);
 
       let list = activeLoops.get(node) || [];
+      // removes old intervals if they dont match loop count
       list = list.filter((obj) => {
         if (obj.key >= regions.length) {
           clearInterval(obj.interval);
@@ -612,14 +712,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return true;
       });
 
+      // creates new loops for new regions
       regions.forEach((region, idx) => {
-        if (list.some((l) => l.key === idx)) return;
+        if (list.some((l) => l.key === idx)) return; // already looping
         const interval = setInterval(() => {
           const s = collectSegmentsWithAttrs(node);
           const rs = extractLoopRegions(s);
           const r = rs[idx];
           if (!r || !r.length) return;
-          playRegionAsWordChords(r);
+          playRegionAsWordChords(r); //replay the loop
         }, 2000);
         list.push({ key: idx, interval });
       });
@@ -628,19 +729,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // everytime a key is pressed it updates to see if anything changed
+  // makes sure that loops start and stop immediately because I had an issue where it kept
+  // playing even after it was deleted
   page.addEventListener("keyup", () => {
     updateParagraphs();
     updateFontDisplay();
   });
 
-  // live typing: if iam inside a "/" paragraph and press a letter or "?"
+  // ========== LIVE TYPING ============
+
+  // live typing when / is at the front of a paragraph
   page.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // ignores shortcuts
 
     const sel = window.getSelection();
     const node = sel?.anchorNode;
     if (!node) return;
 
+    // goes through DOM until it reaches a paragraph
     let el = node.nodeType === 3 ? node.parentElement : node;
     while (
       el &&
@@ -649,14 +756,18 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       el = el.parentElement;
     }
-    const txt = (el?.textContent || "").trim();
-    if (!isLive(txt)) return;
 
+    const txt = (el?.textContent || "").trim();
+    if (!isLive(txt)) return; // only play live if paragprah starts with /
+
+    // if it is a letter or ?, play sonund immediately
     if (/[a-z?]/i.test(e.key)) {
       const caretEl =
         sel.anchorNode.nodeType === 3
           ? sel.anchorNode.parentElement
           : sel.anchorNode;
+
+      // gets the styling and triggers note immediately
       const attrs = attrsFrom(caretEl || page);
       playChar(e.key, Tone.now(), attrs);
     }
@@ -671,6 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==================== GUIDED ONBOARDING TUTORIAL =====================
+// gets everything from ID
 const overlay = document.getElementById("tutorial-overlay");
 const popup = document.getElementById("tutorial-popup");
 const popupText = document.getElementById("tutorial-text");
@@ -683,7 +795,7 @@ const highlightBox = document.createElement("div");
 highlightBox.className = "tutorial-highlight";
 document.body.appendChild(highlightBox);
 
-// define tutorial steps
+// the tutorial steps and where they are, and what they target
 const tutorialSteps = [
   {
     text: "Welcome to Word Doc Synth! Let’s go through a quick tutorial.",
@@ -717,9 +829,10 @@ const tutorialSteps = [
   },
 ];
 
+// tracks what step it are on
 let current = 0;
 
-// --- ensure overlay covers full document height ---
+// makes sure hte overlay coveres the entire page
 function resizeOverlayHeight() {
   const docHeight = Math.max(
     document.body.scrollHeight,
@@ -733,21 +846,23 @@ function resizeOverlayHeight() {
 }
 
 function showStep() {
+  // finds the current tutorial step, and finds the target
   const step = tutorialSteps[current];
   const el = document.querySelector(step.target);
   if (!el) return;
 
   resizeOverlayHeight();
 
+  // calculates everything to correctly position
   const rect = el.getBoundingClientRect();
   const scrollY = window.scrollY || document.documentElement.scrollTop;
   const scrollX = window.scrollX || document.documentElement.scrollLeft;
 
-  // === special case: first step (Welcome screen) ===
+  // special case for the first step! takes up the enture screen
   if (current === 0) {
-    highlightBox.style.display = "none"; // hide glow
+    highlightBox.style.display = "none"; // hides glow
     overlay.style.background = "rgba(0, 0, 0, 0.7)"; // fully dim everything
-    overlay.style.clipPath = "none"; // no transparent cutout
+    overlay.style.clipPath = "none";
 
     // center popup on screen
     popupText.textContent = step.text;
@@ -761,7 +876,7 @@ function showStep() {
     return; // stop here for step 1
   }
 
-  // === Glow highlight box ===
+  // the glow highlight box over the target element and a bit of padding
   highlightBox.style.display = "block";
   const radius = 8;
   highlightBox.style.top = `${rect.top + scrollY - 6}px`;
@@ -769,7 +884,7 @@ function showStep() {
   highlightBox.style.width = `${rect.width + 12}px`;
   highlightBox.style.height = `${rect.height + 12}px`;
 
-  // === Transparent spotlight cut-out (keeps target bright) ===
+  // background dimming/ spotlight thing
   const top = rect.top + scrollY - radius;
   const left = rect.left + scrollX - radius;
   const right = rect.right + scrollX + radius;
@@ -787,7 +902,8 @@ function showStep() {
     ${right}px ${bottom}px, ${right}px ${top}px, 0 ${top}px
   )`;
 
-  // === Position popup near target ===
+  // positions the popup box relative to the highlighted element, and also based on
+  // the position listed
   popupText.textContent = step.text;
   popup.classList.remove("hidden");
   overlay.classList.remove("hidden");
@@ -809,11 +925,11 @@ function showStep() {
   popup.style.left = `${popupLeft}px`;
 }
 
-// --- button controls ---
+// when next is clicked, increases the current step number
 nextBtn.addEventListener("click", () => {
   current++;
   if (current >= tutorialSteps.length - 1) {
-    // when reaching the last step
+    // when reaching the last step, hides the next and skip buttons and shows the finish button
     nextBtn.classList.add("hidden");
     skipBtn.classList.add("hidden");
     finishBtn.classList.remove("hidden");
@@ -823,12 +939,14 @@ nextBtn.addEventListener("click", () => {
   }
 });
 
+// hides everything related to tutorial when clicked
 finishBtn.addEventListener("click", () => {
   overlay.classList.add("hidden");
   popup.classList.add("hidden");
   highlightBox.style.display = "none";
 });
 
+// identical to finish, but can be pressed earlier
 skipBtn.addEventListener("click", () => {
   overlay.classList.add("hidden");
   popup.classList.add("hidden");
