@@ -53,7 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.addEventListener("keydown", unlock, { once: true });
 
   // ===================== TOOLBAR =========================
-  // exec command API MEOW
+  // exec command API - https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand
+  // it says not to use it but it worked so im not questioning it
 
   // applies command bold
   function toggleCmd(cmd) {
@@ -192,7 +193,8 @@ document.addEventListener("DOMContentLoaded", () => {
     ?.addEventListener("click", fullReset);
 
   // ========================= STYLING =========================
-  // MEOW
+  // used AI to help me because even if the color was correct, the code for some reason would still say
+  // it was a different color and I still have no idea why because when I did console.log it owuld print out the right color
   // cleans any color string that comes from CSS so it doesnt break
   function colorBucket(colorStr) {
     if (!colorStr) return "black";
@@ -318,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // console.log("color:", attrs.bucket);
 
-    // clamps font size MEOW
+    // clamps font size
     const pt = Math.max(6, Math.min(18, Math.round(attrs.pt || 12)));
     let vel = LOUDNESS[pt] ?? 0.7;
 
@@ -437,7 +439,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return s;
     });
 
-    // removes all synths and efects when finish playing! for memory and also overalap MEOW
+    // removes all synths and efects when finish playing! for memory and also overalap
+    // was done with the help of AI when I started having bugs when I tried to change or remove content from loops
     const t = when ?? Tone.now();
     synths.forEach((s, i) => s.triggerAttackRelease(notes[i], durSec, t, vel));
 
@@ -488,8 +491,9 @@ document.addEventListener("DOMContentLoaded", () => {
       baseScale[4] || baseScale[2] || baseScale[0],
     ];
 
-    // function to shift note up/down an octave MEOW
-    // i used AI assistance with this part, will write more about in my reflection
+    // function to shift note up/down an octave
+    // i used AI assistance with this part, as I couldn't find anything online on this specific case
+    // was important so that the sounds near the end of the alphabet were less harsh
     function shiftOctave(note, shift) {
       if (!note || typeof note !== "string") return note;
       const match = note.match(/^([A-G]#?)(\d)$/);
@@ -576,7 +580,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // makes word splay one after the other with consideration of spaces and punctuation
-  // made with the assistance of AI MEOW
+  // made with the assistance of AI, because there were lines I was mising and didn't know what to do to fix it
+  // was specifically stuck with trying to make letters and chords play differently
   const isWordChar = (c) => /[a-z?]/i.test(c); // true for letters or ?
   const isWhitespace = (c) =>
     c === " " || c === "\t" || c === "\n" || c === "\r"; // white space
